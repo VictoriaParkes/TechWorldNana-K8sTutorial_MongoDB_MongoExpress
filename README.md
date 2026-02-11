@@ -1,5 +1,6 @@
-# TechWorldNana-K8sTutorial_MongoDB_MongoExpress
-
+<details>
+<summary>TechWorldNana-K8sTutorial_MongoDB_MongoExpress</summary>
+<br>
 Tutorial link: [Kubernetes Tutorial for Beginners [FULL COURSE in 4 Hours]](https://www.youtube.com/watch?v=X48VuDVv0do)
 
 Other links:
@@ -32,3 +33,4 @@ Other links:
 
     minikube service mongo-express-service
     kubectl port-forward service/mongo-express-service 8081:8081
+</details>
