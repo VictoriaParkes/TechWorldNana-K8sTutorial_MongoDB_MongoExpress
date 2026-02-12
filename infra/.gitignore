@@ -45,3 +45,7 @@ terraform.rc
 
 # Ignore private key files for ssh access to instances
 *.pem
+
+# Ignore certificates and keys
+certs/
+keys/
