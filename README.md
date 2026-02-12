@@ -1,6 +1,7 @@
 <details>
 <summary>TechWorldNana-K8sTutorial_MongoDB_MongoExpress</summary>
 <br>
+
 Tutorial link: [Kubernetes Tutorial for Beginners [FULL COURSE in 4 Hours]](https://www.youtube.com/watch?v=X48VuDVv0do)
 
 Other links:
@@ -33,4 +34,17 @@ Other links:
 
     minikube service mongo-express-service
     kubectl port-forward service/mongo-express-service 8081:8081
+</details>
+
+<details>
+<summary>techiescamp-K8s_the_hard_way_aws</summary>
+<br>
+
+Tutorial link: [Project 1: Kubernetes the Hard Way on AWS](https://github.com/techiescamp/kubernetes-projects/tree/main/01-kubernetes-the-hard-way-aws)
+
+Other links:
+
+ - [Create Private CA and Certificates using Terraform](https://amod-kadam.medium.com/create-private-ca-and-certificates-using-terraform-4b0be8d1e86d)
+
+
 </details>
