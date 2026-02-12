@@ -1,13 +1,13 @@
 variable "project_name" {
   description = "Project name"
   type        = string
-  default     = "kubernetes-the-hard-way"
+  default     = "K8s-the-hard-way"
 }
 
 variable "account_id" {
   description = "AWS account number"
-  type = string
-  default = "108181825727"
+  type        = string
+  default     = "108181825727"
 }
 
 variable "region" {
@@ -36,7 +36,7 @@ variable "public_subnet_cidrs" {
 variable "private_subnet_cidrs" {
   description = "Private subnet CIDR blocks"
   type        = list(string)
-  default     = ["10.1.0.0/24", "10.2.0.0/24"]
+  default     = ["10.0.10.0/24", "10.0.20.0/24"]
 
   validation {
     condition     = length(var.private_subnet_cidrs) >= 1

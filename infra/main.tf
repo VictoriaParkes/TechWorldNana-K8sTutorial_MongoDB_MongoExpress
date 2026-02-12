@@ -261,10 +261,10 @@ resource "aws_instance" "K8s_controllers" {
   subnet_id              = aws_subnet.k8_private_subnets[count.index].id
   vpc_security_group_ids = [aws_security_group.k8_sg.id]
   source_dest_check      = false
-  monitoring = true
+  monitoring             = true
   root_block_device {
     volume_size = 50
-    encrypted = true
+    encrypted   = true
   }
 
   tags = {
@@ -281,11 +281,11 @@ resource "aws_instance" "K8s_workers" {
   subnet_id              = aws_subnet.k8_private_subnets[count.index].id
   vpc_security_group_ids = [aws_security_group.k8_sg.id]
   source_dest_check      = false
-  monitoring = true
+  monitoring             = true
 
   root_block_device {
     volume_size = 50
-    encrypted = true
+    encrypted   = true
   }
 
   tags = {
