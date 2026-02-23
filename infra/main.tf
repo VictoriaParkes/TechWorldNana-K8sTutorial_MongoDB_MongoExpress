@@ -280,8 +280,14 @@ resource "aws_instance" "K8s_workers" {
   key_name               = aws_key_pair.k8s_key_pair.key_name
   subnet_id              = aws_subnet.k8_private_subnets[count.index].id
   vpc_security_group_ids = [aws_security_group.k8_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_profile.name
   source_dest_check      = false
   monitoring             = true
+
+  user_data = templatefile("${path.module}/scripts/worker-userdata.sh", {
+    worker_index = count.index
+    region       = var.region
+  })
 
   root_block_device {
     volume_size = 50
@@ -292,3 +298,43 @@ resource "aws_instance" "K8s_workers" {
     Name = "worker-${count.index}"
   }
 }
+
+/*
+K8s_workers User-data:
+This code generates a customized startup script for each worker instance by
+injecting variables into a template file.
+
+user_data: Script that runs automatically when the EC2 instance first boots
+
+templatefile(): Terraform function that:
+
+  1. Reads a template file
+  2. Replaces placeholders with actual values
+  3. Returns the rendered script
+
+"${path.module}/scripts/worker-userdata.sh": Path to your template file
+(relative to Terraform module)
+
+Variables passed to template:
+ - worker_index = count.index: Worker number (0, 1, 2, etc.)
+ - region = var.region: AWS region (e.g., "us-east-1")
+
+How the Template Works:
+The worker-userdata.sh file, references the variables:
+ - ${worker_index}: Which worker node this is (used for unique naming)
+ - ${region}: AWS region (used for API calls)
+Retrieves worker-specific certificate:
+aws secretsmanager get-secret-value \
+  --secret-id k8s-certs-worker-$WORKER_INDEX \
+  --region $REGION
+
+worker-0 gets:
+WORKER_INDEX=0
+REGION=us-east-1
+worker-1 gets:
+WORKER_INDEX=1
+REGION=us-east-1
+
+This allows each worker to retrieve its unique certificate (k8s-certs-worker-0,
+k8s-certs-worker-1, etc.) from Secrets Manager automatically on boot.
+*/
