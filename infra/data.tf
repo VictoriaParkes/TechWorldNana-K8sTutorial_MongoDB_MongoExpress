@@ -1,5 +1,9 @@
 data "aws_caller_identity" "current" {}
 
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
 data "aws_ami" "image_id" {
   most_recent = true
   owners      = ["amazon"]
