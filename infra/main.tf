@@ -10,7 +10,7 @@ resource "aws_vpc" "k8_vpc" {
   cidr_block = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
-  
+
   tags = {
     Name = "${var.project_name}-vpc"
   }
@@ -213,10 +213,7 @@ resource "aws_lb" "load_balancer" {
   name               = "${var.project_name}-load-balancer"
   internal           = false
 
-  subnets = [
-    aws_subnet.k8_public_subnets["subnet1"].id,
-    aws_subnet.k8_public_subnets["subnet2"].id
-  ]
+  subnets = [for subnet in aws_subnet.k8_public_subnets : subnet.id]
 
   tags = {
     Name = "${var.project_name}-load-balancer"
