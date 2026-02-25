@@ -411,6 +411,66 @@ resource "local_file" "service_account_cert" {
   file_permission = "0644"
 }
 
+/*
+Provisioning a CA and Generating TLS Certificates Config
+This code creates a complete PKI (Public Key Infrastructure) for your
+Kubernetes cluster. It follows a repeating 3-step pattern for each component.
+
+The 8 Certificate Sets
+
+1. CA - Root of trust
+   - Self-signed, signs all others
+   - `is_ca_certificate = true`
+
+2. Admin - Human access
+   - `organization = "system:masters"` (plural!)
+   - Full cluster admin via kubectl
+
+3. Kubelet - Worker nodes
+   - `common_name = "system:node:worker-${each.key}"`
+   - `organization = "system:nodes"`
+   - Unique per worker
+
+4. Controller Manager - Cluster management
+   - `common_name = "system:kube-controller-manager"`
+   - Manages ReplicaSets, nodes, services
+
+5. Kube-proxy - Network proxy
+   - `common_name = "system:kube-proxy"`
+   - `organization = "system:node-proxier"`
+   - Shared across workers
+
+6. Scheduler - Pod placement
+   - `common_name = "system:kube-scheduler"`
+   - `organization = "system:kube-scheduler"`
+   - Assigns pods to nodes
+
+7. API Server - Server certificate
+   - `common_name = "kubernetes"`
+   - `organization = "Kubernetes"`
+   - Has `dns_names` and `ip_addresses` (SANs)
+   - Proves API server identity
+
+8. Service Account - Token signing
+   - Signs JWT tokens for pods
+   - Not for component authentication
+
+
+
+Key Differenes
+Self-signed: Only CA (no higher authority)
+CA-signed: All others (lines 73-75 pattern):
+`ca_private_key_pem = tls_private_key.ca_private_key.private_key_pem`
+`ca_cert_pem        = tls_self_signed_cert.ca_cert.cert_pem`
+
+File permissions:
+ - Private keys: 0600 (owner read/write only)
+ - Certificates: 0644 (world readable)
+
+This establishes the trust chain: CA → signs all component certs → components trust each other.
+
+*/
+
 
 
 #################################################
@@ -561,3 +621,89 @@ resource "aws_secretsmanager_secret_version" "admin" {
   })
 }
 
+/*
+The certs are all stored in aws secrets manager to be accessed by ec2 nodes
+when needed at point of creation. This provides a secure way to distribute
+certificates to nodes without exposing them in plaintext in configuration
+files or source code.
+
+The code stores control plane certificates in AWS Secrets Manager for automated
+distribution to controller nodes. It follows a repeating 2-step pattern for 5
+certificate types.
+
+The Pattern
+  1. Create secret → aws_secretsmanager_secret
+  2. Store cert + key as JSON → aws_secretsmanager_secret_version
+
+
+All 10 Secrets in AWS Secrets Manager
+
+Worker Secrets (3 workers)
+1. k8s-certs-worker-0
+ - Kubelet cert + key for worker-0
+ - Common name: system:node:worker-0
+
+2. k8s-certs-worker-1
+ - Kubelet cert + key for worker-1
+ - Common name: system:node:worker-1
+
+3. k8s-certs-worker-2
+ - Kubelet cert + key for worker-2
+ - Common name: system:node:worker-2
+
+Shared Worker Secret (1)
+4. k8s-certs-kube-proxy
+ - Kube-proxy cert + key (shared by all 3 workers)
+ - Common name: system:kube-proxy
+
+Control Plane Secrets (5)
+5. k8s-certs-kubernetes-api
+ - API server cert + key (server certificate)
+ - Common name: kubernetes
+
+6. k8s-certs-service-account
+ - Service account signing key + cert
+ - Common name: service_account
+
+7. k8s-certs-controller-manager
+ - Controller manager cert + key
+ - Common name: system:kube-controller-manager
+
+8. k8s-certs-scheduler
+ - Scheduler cert + key
+ - Common name: system:kube-scheduler
+
+9. k8s-certs-admin
+ - Admin cert + key
+ - Common name: admin
+
+CA Secret (1)
+10. k8s-certs-ca
+ - CA certificate (public cert only, not private key for security)
+ - Used by all components to verify certificates
+ - Common name: kubernetes
+
+Summary
+Total: 10 secrets
+ - 3 worker certs (unique per worker)
+ - 1 kube-proxy cert (shared)
+ - 5 control plane certs
+ - 1 CA cert
+
+Your var.private_subnet_cidrs has 3 subnets, creating 3 workers + 3 controllers.
+
+
+How It Works
+JSON format:
+
+{
+  "private_key": "-----BEGIN RSA PRIVATE KEY-----...",
+  "certificate": "-----BEGIN CERTIFICATE-----..."
+}
+
+Retrieval: Controller nodes use IAM instance profile to fetch secrets via VPC
+endpoint during boot (configured in your user_data scripts).
+
+Why this approach: Eliminates manual SCP/SSH distribution, enables automated
+certificate rotation, and follows AWS security best practices.
+*/
