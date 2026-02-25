@@ -8,6 +8,9 @@ provider "aws" {
 
 resource "aws_vpc" "k8_vpc" {
   cidr_block = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  
   tags = {
     Name = "${var.project_name}-vpc"
   }
@@ -16,11 +19,12 @@ resource "aws_vpc" "k8_vpc" {
 resource "aws_subnet" "k8_public_subnets" {
   for_each = {
     for i, cidr in var.public_subnet_cidrs :
-    "subnet${i + 1}" => cidr
+    "subnet${i + 1}" => { cidr = cidr, index = i }
   }
 
   vpc_id                  = aws_vpc.k8_vpc.id
-  cidr_block              = each.value
+  cidr_block              = each.value.cidr
+  availability_zone       = data.aws_availability_zones.available.names[each.value.index]
   map_public_ip_on_launch = true
 
   tags = {
@@ -33,6 +37,7 @@ resource "aws_subnet" "k8_private_subnets" {
 
   vpc_id     = aws_vpc.k8_vpc.id
   cidr_block = var.private_subnet_cidrs[count.index]
+  availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = {
     Name = "${var.project_name}-subnet-${count.index}"
@@ -187,6 +192,22 @@ DNS lookups, and inter-pod networking that Kubernetes requires.
  - ip_protocol = "-1": Allows all protocols for pod communication
 */
 
+# Allow SSH from bastion to private instances
+resource "aws_vpc_security_group_ingress_rule" "bastion_ssh" {
+  security_group_id            = aws_security_group.k8_sg.id
+  referenced_security_group_id = aws_security_group.k8_sg.id
+  from_port                    = 22
+  to_port                      = 22
+  ip_protocol                  = "tcp"
+}
+
+# Allow all outbound traffic
+resource "aws_vpc_security_group_egress_rule" "allow_all_outbound" {
+  security_group_id = aws_security_group.k8_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
 resource "aws_lb" "load_balancer" {
   load_balancer_type = "network"
   name               = "${var.project_name}-load-balancer"
@@ -260,8 +281,15 @@ resource "aws_instance" "K8s_controllers" {
   key_name               = aws_key_pair.k8s_key_pair.key_name
   subnet_id              = aws_subnet.k8_private_subnets[count.index].id
   vpc_security_group_ids = [aws_security_group.k8_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k8s_profile.name
   source_dest_check      = false
   monitoring             = true
+
+  user_data = templatefile("${path.module}/scripts/controller-userdata.sh", {
+    controller_index = count.index
+    region       = var.region
+  })
+
   root_block_device {
     volume_size = 50
     encrypted   = true
@@ -338,3 +366,31 @@ REGION=us-east-1
 This allows each worker to retrieve its unique certificate (k8s-certs-worker-0,
 k8s-certs-worker-1, etc.) from Secrets Manager automatically on boot.
 */
+
+# Bastion host for accessing private instances
+resource "aws_instance" "bastion" {
+  ami                         = data.aws_ami.image_id.id
+  instance_type               = "t3.micro"
+  key_name                    = aws_key_pair.k8s_key_pair.key_name
+  subnet_id                   = aws_subnet.k8_public_subnets["subnet1"].id
+  vpc_security_group_ids      = [aws_security_group.k8_sg.id]
+  associate_public_ip_address = true
+
+  tags = {
+    Name = "bastion-host"
+  }
+}
+
+# VPC Endpoint for Secrets Manager
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id              = aws_vpc.k8_vpc.id
+  service_name        = "com.amazonaws.${var.region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [for subnet in aws_subnet.k8_private_subnets : subnet.id]
+  security_group_ids  = [aws_security_group.k8_sg.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${var.project_name}-secretsmanager-endpoint"
+  }
+}
