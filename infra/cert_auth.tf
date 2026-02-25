@@ -424,18 +424,18 @@ resource "local_file" "service_account_cert" {
 # creates multiple secrets, one for each worker node
 # each secret will be named k8s-certs-worker-{worker-name}
 resource "aws_secretsmanager_secret" "worker_certs" {
-  for_each = aws_instance.K8s_workers
-  name     = "k8s-certs-worker-${each.key}"
+  count = length(var.private_subnet_cidrs)
+  name  = "k8s-certs-worker-${count.index}"
 }
 
 # Store the private key and certificate for each worker node
 resource "aws_secretsmanager_secret_version" "worker_certs" {
-  for_each = aws_instance.K8s_workers
+  count = length(var.private_subnet_cidrs)
 
-  secret_id = aws_secretsmanager_secret.worker_certs[each.key].id
+  secret_id = aws_secretsmanager_secret.worker_certs[count.index].id
   secret_string = jsonencode({
-    private_key = tls_private_key.nodes[each.key].private_key_pem
-    certificate = tls_locally_signed_cert.nodes[each.key].cert_pem
+    private_key = tls_private_key.nodes[count.index].private_key_pem
+    certificate = tls_locally_signed_cert.nodes[count.index].cert_pem
   })
 }
 
@@ -492,4 +492,72 @@ configuration files or Docker images.
 
 
 
-# Copy the appropriate certificates and private keys to each controller instance
+#######################################
+# Store Controller Certificates       #
+#######################################
+
+# API Server certs
+resource "aws_secretsmanager_secret" "kubernetes_api" {
+  name = "k8s-certs-kubernetes-api"
+}
+
+resource "aws_secretsmanager_secret_version" "kubernetes_api" {
+  secret_id = aws_secretsmanager_secret.kubernetes_api.id
+  secret_string = jsonencode({
+    private_key = tls_private_key.kubernetes_api.private_key_pem
+    certificate = tls_locally_signed_cert.kubernetes_api.cert_pem
+  })
+}
+
+# Service Account certs
+resource "aws_secretsmanager_secret" "service_account" {
+  name = "k8s-certs-service-account"
+}
+
+resource "aws_secretsmanager_secret_version" "service_account" {
+  secret_id = aws_secretsmanager_secret.service_account.id
+  secret_string = jsonencode({
+    private_key = tls_private_key.service_account.private_key_pem
+    certificate = tls_locally_signed_cert.service_account.cert_pem
+  })
+}
+
+# Controller Manager certs
+resource "aws_secretsmanager_secret" "kube_controller_manager" {
+  name = "k8s-certs-controller-manager"
+}
+
+resource "aws_secretsmanager_secret_version" "kube_controller_manager" {
+  secret_id = aws_secretsmanager_secret.kube_controller_manager.id
+  secret_string = jsonencode({
+    private_key = tls_private_key.kube_controller_manager.private_key_pem
+    certificate = tls_locally_signed_cert.kube_controller_manager.cert_pem
+  })
+}
+
+# Scheduler certs
+resource "aws_secretsmanager_secret" "kube_scheduler" {
+  name = "k8s-certs-scheduler"
+}
+
+resource "aws_secretsmanager_secret_version" "kube_scheduler" {
+  secret_id = aws_secretsmanager_secret.kube_scheduler.id
+  secret_string = jsonencode({
+    private_key = tls_private_key.kube_scheduler.private_key_pem
+    certificate = tls_locally_signed_cert.kube_scheduler.cert_pem
+  })
+}
+
+# Admin certs
+resource "aws_secretsmanager_secret" "admin" {
+  name = "k8s-certs-admin"
+}
+
+resource "aws_secretsmanager_secret_version" "admin" {
+  secret_id = aws_secretsmanager_secret.admin.id
+  secret_string = jsonencode({
+    private_key = tls_private_key.admin.private_key_pem
+    certificate = tls_locally_signed_cert.admin.cert_pem
+  })
+}
+
