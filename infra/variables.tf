@@ -7,13 +7,13 @@ variable "project_name" {
 variable "account_id" {
   description = "AWS account number"
   type        = string
-  default     = "108181825727"
+  default     = "440984348994"
 }
 
 variable "region" {
   description = "AWS region"
   type        = string
-  default     = "eu-west-2"
+  default     = "eu-north-1"
 }
 
 variable "vpc_cidr" {
@@ -47,5 +47,5 @@ variable "private_subnet_cidrs" {
 variable "prefix_list_id" {
   description = "Prefix list id"
   type        = string
-  default     = "pl-fca24795"
+  default     = "pl-c2aa4fab"
 }
